@@ -103,6 +103,8 @@ def respond(sock):
         for substring in FORBIDDEN_URL_SUBSTRINGS:
             if substring in url: # https://www.geeksforgeeks.org/python/check-if-string-contains-substring-in-python/
                 transmit(STATUS_FORBIDDEN, sock)
+                sock.shutdown(socket.SHUT_RDWR)
+                sock.close()
                 return
 
 
