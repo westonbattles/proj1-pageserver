@@ -13,6 +13,7 @@
   program is run).
 """
 
+import os
 import config    # Configure from .ini files and command line
 import logging   # Better than print statements
 logging.basicConfig(format='%(levelname)s:%(message)s',
@@ -59,6 +60,8 @@ def serve(sock, func):
         _thread.start_new_thread(func, (clientsocket,))
 
 
+DOCROOT = "." #overriden by config
+
 ##
 # Starter version only serves cat pictures. In fact, only a
 # particular cat picture.  This one.
@@ -91,8 +94,21 @@ def respond(sock):
 
     parts = request.split()
     if len(parts) > 1 and parts[0] == "GET":
-        transmit(STATUS_OK, sock)
-        transmit(CAT, sock)
+
+        url = parts[1][1:] # remove leading forward slash - https://stackoverflow.com/questions/4945548/remove-the-first-character-of-a-string
+        if len(url) > 0:
+            spew_response = spew(url) # tuple - (bool: succesful spew, string: response)
+            if (spew_response[0]):
+                transmit(STATUS_OK, sock)
+                transmit(spew_response[1], sock)
+            else:
+                transmit(404)
+        else:
+            transmit(STATUS_OK, sock)
+            transmit(CAT, sock)
+
+
+        
     else:
         log.info("Unhandled request: {}".format(request))
         transmit(STATUS_NOT_IMPLEMENTED, sock)
@@ -109,6 +125,32 @@ def transmit(msg, sock):
     while sent < len(msg):
         buff = bytes(msg[sent:], encoding="utf-8")
         sent += sock.send(buff)
+
+# copied & modified from spew.py
+def spew(file_name) -> tuple[bool, str]:
+    """Spew contents of 'source' to standard output. 
+    Source should be a file or file-like object.
+    """
+
+    return_string = ""
+
+    source_path = os.path.join(DOCROOT, file_name)
+    print(str(os.listdir(DOCROOT)) + ", " + source_path)
+    log.debug("Source path: {}".format(source_path))
+    try: 
+        with open(source_path, 'r', encoding='utf-8') as source:
+            for line in source:
+                return_string += line
+    
+    except OSError as error:
+        log.warn("Failed to open or read file")
+        log.warn("Requested file was {}".format(source_path))
+        log.warn("Exception: {}".format(error))
+        return (False, "")
+
+    return (True, return_string)
+    
+
 
 ###
 #
@@ -136,7 +178,11 @@ def get_options():
 
 
 def main():
+    global DOCROOT
     options = get_options()
+    assert options.DOCROOT, "Document root must be specified in " \
+          + "configuration file credentials.ini or on command line" #copied from spew.py
+    DOCROOT = options.DOCROOT
     port = options.PORT
     if options.DEBUG:
         log.setLevel(logging.DEBUG)
