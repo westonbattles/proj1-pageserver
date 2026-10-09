@@ -62,6 +62,8 @@ def serve(sock, func):
 
 DOCROOT = "." #overriden by config
 
+FORBIDDEN_URL_SUBSTRINGS = {"/~", "//", "/.."} #prepend with / to represent start of the name of a page, as per the instructions of the assignment
+
 ##
 # Starter version only serves cat pictures. In fact, only a
 # particular cat picture.  This one.
@@ -95,14 +97,23 @@ def respond(sock):
     parts = request.split()
     if len(parts) > 1 and parts[0] == "GET":
 
-        url = parts[1][1:] # remove leading forward slash - https://stackoverflow.com/questions/4945548/remove-the-first-character-of-a-string
+        url = parts[1]
+
+        # make sure we don't have a forbidden substring in our midst
+        for substring in FORBIDDEN_URL_SUBSTRINGS:
+            if substring in url: # https://www.geeksforgeeks.org/python/check-if-string-contains-substring-in-python/
+                transmit(STATUS_FORBIDDEN, sock)
+                return
+
+
+        url = url[1:] # remove leading forward slash - https://stackoverflow.com/questions/4945548/remove-the-first-character-of-a-string
         if len(url) > 0:
             spew_response = spew(url) # tuple - (bool: succesful spew, string: response)
             if (spew_response[0]):
                 transmit(STATUS_OK, sock)
                 transmit(spew_response[1], sock)
             else:
-                transmit(404)
+                transmit(STATUS_NOT_FOUND, sock)
         else:
             transmit(STATUS_OK, sock)
             transmit(CAT, sock)
@@ -135,7 +146,6 @@ def spew(file_name) -> tuple[bool, str]:
     return_string = ""
 
     source_path = os.path.join(DOCROOT, file_name)
-    print(str(os.listdir(DOCROOT)) + ", " + source_path)
     log.debug("Source path: {}".format(source_path))
     try: 
         with open(source_path, 'r', encoding='utf-8') as source:
