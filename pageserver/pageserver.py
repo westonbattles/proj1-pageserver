@@ -62,7 +62,9 @@ def serve(sock, func):
 
 DOCROOT = "." #overriden by config
 
+ALLOWED_EXTENSIONS = {".html", ".css"}
 FORBIDDEN_URL_SUBSTRINGS = {"/~", "//", "/.."} #prepend with / to represent start of the name of a page, as per the instructions of the assignment
+FORBIDDEN_URL_SUBSTRINGS.add("~") # t.a. said instructions were wrong and we should test if its in the middle of names as well.
 
 ##
 # Starter version only serves cat pictures. In fact, only a
@@ -107,18 +109,27 @@ def respond(sock):
                 sock.close()
                 return
 
-
         url = url[1:] # remove leading forward slash - https://stackoverflow.com/questions/4945548/remove-the-first-character-of-a-string
-        if len(url) > 0:
-            spew_response = spew(url) # tuple - (bool: succesful spew, string: response)
-            if (spew_response[0]):
-                transmit(STATUS_OK, sock)
-                transmit(spew_response[1], sock)
-            else:
-                transmit(STATUS_NOT_FOUND, sock)
-        else:
+        
+        if len(url) == 0:
             transmit(STATUS_OK, sock)
             transmit(CAT, sock)
+        else:
+            # make sure extension is either .html or .css
+            split_url = os.path.splitext(url) # https://www.geeksforgeeks.org/python/how-to-get-file-extension-in-python/
+            if split_url[1] in ALLOWED_EXTENSIONS:
+
+                # try and spew the file contents
+                spew_response = spew(url) # tuple - (bool: succesful spew, string: response)
+                if (spew_response[0]):
+                    transmit(STATUS_OK, sock)
+                    transmit(spew_response[1], sock)
+                else:
+                    transmit(STATUS_NOT_FOUND, sock)
+
+            # forbidden extension
+            else:
+                transmit(STATUS_FORBIDDEN, sock) 
 
 
         
